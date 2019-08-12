@@ -198,14 +198,26 @@ export const binanceOco = async (options: {
             async (trade: Trade): Promise<void> => {
               try {
                 const { symbol, price } = trade;
+
+                let tippingPointPrice: BigNumber = new BigNumber(0); // 0 = disabled
+                if (targetPrice && stopPrice) {
+                  tippingPointPrice = new BigNumber(targetPrice)
+                    .minus(new BigNumber(stopPrice))
+                    .dividedBy(2)
+                    .plus(new BigNumber(stopPrice));
+                }
+
                 debug(
-                  `${symbol} trade update. price: ${price} stop: ${stopPrice} target: ${targetPrice}`
+                  `${symbol} trade update. price: ${price} stop: ${stopPrice} target: ${targetPrice}, tipping point: ${tippingPointPrice.toString()}`
                 );
+
                 if (
                   stopOrderId &&
                   !targetOrderId &&
                   targetPrice &&
-                  new BigNumber(price).gte(targetPrice) &&
+                  new BigNumber(price).gte(
+                    tippingPointPrice.gt(0) ? tippingPointPrice : targetPrice
+                  ) &&
                   !isCancelling
                 ) {
                   await cancelOrderAsync(symbol, stopOrderId);
@@ -215,7 +227,9 @@ export const binanceOco = async (options: {
                   targetOrderId &&
                   !stopOrderId &&
                   stopPrice &&
-                  new BigNumber(price).lte(stopPrice) &&
+                  new BigNumber(price).lte(
+                    tippingPointPrice.gt(0) ? tippingPointPrice : stopPrice
+                  ) &&
                   !isCancelling
                 ) {
                   await cancelOrderAsync(symbol, targetOrderId);
